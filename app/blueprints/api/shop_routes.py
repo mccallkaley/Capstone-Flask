@@ -2,6 +2,45 @@ from . import bp as api
 from app.blueprints.auth.auth import token_auth
 from flask import request, make_response, g
 from .models import *
+import stripe
+import os
+
+############
+##
+##  STRIPE API ROUTES
+##
+############
+
+# This is a sample test API key. Sign in to see examples pre-filled with your key.
+stripe.api_key = 'sk_test_4eC39HqLyjWDarjtT1zdp7dc'
+YOUR_DOMAIN = "http://localhost:3000"
+
+@api.post('/create-checkout-session')
+@token_auth.login_required()
+def create_checkout_session():
+    cart = request.get_json().get('cart')
+    line_items=[
+        {
+            'name':cart[item_key]['name'],
+            'amount':int(round(float(cart[item_key]['price']),2)*100),
+            'currency':'USD',
+            'quantity':cart[item_key]['quantity']
+        } for item_key in cart.keys()
+    ]
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            line_items=line_items,
+            payment_method_types=['card'],
+            mode='payment',
+            success_url=YOUR_DOMAIN + '/checkoutSuccess',
+            cancel_url=YOUR_DOMAIN + '/cart',
+        )
+    except Exception as e:
+        return str(e)
+
+    return {'url':checkout_session.url}
+
 ############
 ##
 ##  CATEGORY API ROUTES
